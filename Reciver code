@@ -1,0 +1,175 @@
+/*
+ * Project name:
+          DMX_PIC18F4520_V2
+ * Description:
+     This is a simple demonstration of DMX 512 receiver, programmed for receiving data on
+     two Channels: channel 5 and channel 6 and display data on 2x16 character parallel LCD.
+
+ * Configuration:
+            MCU:      PIC18F87k21
+     Oscillator:      HS, 20.000 MHz (20MHz Crystal)
+     Ext. Modules:    RS485 Click Board on PORTC
+                      http://www.mikroe.com/click/rs485-5v/
+
+                      2x16 characters parallel LCD, on PORTD.
+
+  *     Compiler:    mikroC PRO for PIC
+
+  *       Notes:     Realisation by Mikroelektronika's RS-485 click board
+                     Pay attention of DMX connector wiring!!!
+                     Incorrect wiring will cause invalid DMX translation!
+
+*/
+
+sbit LCD_RS at RD2_bit;
+sbit LCD_EN at RD3_bit;
+sbit LCD_D4 at RD4_bit;
+sbit LCD_D5 at RD5_bit;
+sbit LCD_D6 at RD6_bit;
+sbit LCD_D7 at RD7_bit;
+
+sbit LCD_RS_Direction at TRISD2_bit;
+sbit LCD_EN_Direction at TRISD3_bit;
+sbit LCD_D4_Direction at TRISD4_bit;
+sbit LCD_D5_Direction at TRISD5_bit;
+sbit LCD_D6_Direction at TRISD6_bit;
+sbit LCD_D7_Direction at TRISD7_bit;
+
+//  HERE Change if more Channels needed!
+const Channels =5;   //Number of Channels, used by the device
+unsigned char k1;
+
+//DECLARATIONS
+
+char i;                        //Counter
+char Text[5];                  //Text array for ByteToStr conversation
+char DMX_Byte;                 //DMX read value
+int DMX_Channel;               //Number of DMX channel (up to 512)
+int FirstDeviceCh;             //The first channel, used by device
+int LastDeviceCh;              //The last channel, used by device
+char DMX_Array[Channels];      //Channel width. The number of Channels,used by device
+
+
+void InitDMXPort()
+{
+  SPBRG = 4 ;       //Set speed 250000 bps / value 4 -> 20 MHz)
+  TXSTA.BRGH = 1;   //Set High speed
+  TXSTA.SYNC = 0;   //Enable Asynchronous mode
+  PIE1 = 0;         //Peripheral interrupt enable
+  PIE1.RCIE = 1;    //Enable interrupt on UART receive
+  PIE2.TXIE = 0;    //Disable interrupt on UART transmit
+  RCSTA.RX9 = 1;    //Enable 9th bit receive
+  DMX_Byte = RCREG; //Read 1st byte from port
+  DMX_Byte = RCREG; //Read 2nd byte from port
+  DMX_Byte = RCREG; //Read 3rd byte from port
+  RCSTA.CREN = 1;   //Enable continuous receive
+  RCSTA.SPEN = 1;   //Serial port enable(configure RX and TX pins as port pins)
+  RCSTA.ADDEN = 0;  //Disable channel detection
+  INTCON.PEIE = 1;  //Enable peripheral interrupts
+  INTCON.GIE = 1;   //Enable all interrupts
+}
+
+void interrupt()
+{
+  if (PIR1.RCIF == 1)        //If UART interrupt enabled
+  {
+    if (RCSTA.FERR)           //Framing error bit
+      {
+        DMX_Byte = RCREG;      //Update RCREG register and receiving next byte
+        DMX_Channel = 0;       //Start transmition detection
+      }
+      else{
+         if ((DMX_Channel >= FirstDeviceCh) && (DMX_Channel < LastDeviceCh))
+            {
+             DMX_Array[DMX_Channel - FirstDeviceCh] = RCREG;
+          }
+             else{
+                 DMX_Byte = RCREG;
+             }
+
+       DMX_Channel++;
+      }
+
+    PIR1.RCIF = 0;            //Reset UART interrupt
+  }
+}
+void main()
+{
+
+    ADCON1 = 0X0C;
+    DMX_Channel = 0;                // Set initial channel
+    Lcd_Init();                     // Initialize Lcd
+    Lcd_Cmd(_LCD_CLEAR);            // Clear display
+    Lcd_Cmd(_LCD_CURSOR_OFF);       // Cursor off
+
+    FirstDeviceCh =59;                        // Set first DMX channel number.
+    LastDeviceCh = FirstDeviceCh + Channels ; // Calculate last DMX channel number.
+
+    InitDMXPort();               //DMX port initialize
+    //pwm_4_init();                    // Initialize PWM1 module at 5KHz
+    PWM1_Init(5000);
+    PWM2_Init(5000);
+    PWM3_Init(5000);
+    PWM4_Init(5000);
+    PWM5_Init(5000);
+
+  while(1)
+  {
+      //Display Label and channel number
+      //Lcd_Out(1, 1, "DMX Ch:");
+      //IntToStr(FirstDeviceCh, Text); // +1 for the first device channel
+      //Lcd_Out(1, 5, Text);
+     // Lcd_Out(1, 8, Text[5]);
+      //Lcd_Out(1, 9, Text[6]);
+      //Lcd_Out(1, 10, Text[7]);
+      //Lcd_Out(2, 1, "DMX Ch:");
+      //IntToStr(FirstDeviceCh + 1, Text); // +2 for the second device channel  and s.o.
+      //Lcd_Out(2, 8, Text[5]);
+      //Lcd_Out(2, 9, Text[6]);
+      //Lcd_Out(2, 10, Text[7]);
+
+      //Display channel value
+       Lcd_Out(1,1,"CH60:");
+       ByteToStr(DMX_Array[0], Text);      //0 match the first channel used by device
+       PWM1_Set_Duty(DMX_Array[0]);
+       PWM1_Start();
+       Lcd_Out(1, 12, Text);
+      // Delay_ms(200);
+       //-------------------------------------------//
+       Lcd_Out(1,1,"CH61:");
+       ByteToStr(DMX_Array[1], Text);      //0 match the first channel used by device
+       PWM2_Set_Duty(DMX_Array[1]);
+       PWM2_Start();
+       Lcd_Out(1, 12, Text);
+      // Delay_ms(200);
+       //-------------------------------------------//
+       Lcd_Out(1,1,"CH62:");
+       ByteToStr(DMX_Array[2], Text);      //0 match the first channel used by device
+       Lcd_Out(1, 12, Text);
+       PWM3_Set_Duty(DMX_Array[2]);
+       PWM3_Start();
+
+      // Delay_ms(200);
+       //-------------------------------------------//
+       Lcd_Out(1,1,"CH63:");
+       ByteToStr(DMX_Array[3], Text);      //0 match the first channel used by device
+       Lcd_Out(1, 12, Text);
+       PWM4_Set_Duty(DMX_Array[3]);
+       PWM4_Start();
+
+       //Delay_ms(200);
+       //------------------------------------------//
+       Lcd_Out(1,1,"CH64:");
+       ByteToStr(DMX_Array[4], Text);      //0 match the first channel used by device
+       Lcd_Out(1, 12, Text);
+       PWM5_Set_Duty(DMX_Array[4]);
+       PWM5_Start();
+
+      // Delay_ms(200);
+       //-----------------------------------------//
+
+      // ByteToStr(DMX_Array[1], Text);     //1 match the first channel used by device
+      // Lcd_Out(2, 12, Text);
+      //Delay_ms(200);
+  }
+}
