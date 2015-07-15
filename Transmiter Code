@@ -1,0 +1,17 @@
+#include <DmxSimple.h> // download the aurdinu DMXsimple Library and install it 
+
+void setup() {
+}
+
+void loop() {
+  unsigned char  brightness;  
+ // for (brightness = 0; brightness <= 255; brightness++) {
+    DmxSimple.write(60,50); // Set DMX channel 1 to new value
+    DmxSimple.write(61, 100); // Set DMX channel 1 to new value
+    DmxSimple.write(62, 150); // Set DMX channel 1 to new value
+    DmxSimple.write(63, 200); // Set DMX channel 1 to new value
+    DmxSimple.write(64, 2); // Set DMX channel 1 to new value
+    //DmxSimple.write(65, 170); // Set DMX channel 1 to new value
+    delay(10); // Wait 10ms
+ // }
+}
